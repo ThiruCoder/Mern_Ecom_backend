@@ -1,0 +1,23 @@
+import mongoose from "mongoose";
+
+const AddCartSchema = new mongoose.Schema({
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    category: { type: String, required: true },
+    price: { type: Number, required: true },
+    discount: { type: Number },
+    description: { type: String },
+    features: { type: [String] },
+    images: { type: [String] },
+    colors: { type: [String] },
+    rating: { type: Number },
+    reviews: { type: Number },
+    stock: { type: Number, required: true },
+    featured: { type: Boolean },
+    quantity: { type: Number, default: 1 },
+    totalPrice: { type: Number, default: 0 },
+    createdAt: { type: Date, default: Date.now },
+});
+
+const AddCartModel = mongoose.model('AddCart', AddCartSchema);
+export { AddCartModel }

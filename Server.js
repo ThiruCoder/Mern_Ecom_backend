@@ -12,7 +12,8 @@ const app = express();
 
 const allowedOrigins = [
     'http://localhost:10000', // your local frontend
-    'https://mern-ecommerce-tu85.onrender.com' // deployed frontend
+    'https://mern-ecommerce-tu85.onrender.com', // deployed frontend
+    'https://devstore-taa6.onrender.com',
 ];
 
 app.use(cors({

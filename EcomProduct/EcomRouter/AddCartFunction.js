@@ -1,5 +1,6 @@
 import e from "express";
 import { AddCartModel } from "../AddCart_Schema.js";
+import { ProductModel } from "../Product_Schema.js";
 
 
 const getAddCarts = async (req, res) => {
@@ -34,43 +35,52 @@ const getAddCartById = async (req, res) => {
 
 // Create a new cart
 const createAddCart = async (req, res) => {
-
     try {
         const cartData = req.body;
+
+        if (!cartData || !cartData._id) {
+            return res.status(400).json({ message: 'Cart data or ID is required', success: false });
+        }
+
         const actualData = await AddCartModel.findOne({ _id: cartData._id });
+
         if (actualData) {
             const updatedQuantity = actualData.quantity + 1;
             const updatedPrice = actualData.price * updatedQuantity;
-            const updatedData = await AddCartModel.findByIdAndUpdate(actualData._id, {
-                $set: {
-                    quantity: updatedQuantity,
-                    totalPrice: updatedPrice
+
+            const updatedData = await AddCartModel.findByIdAndUpdate(
+                actualData._id,
+                {
+                    $set: {
+                        quantity: updatedQuantity,
+                        totalPrice: updatedPrice
+                    },
                 },
-            },
-                { new: true })
-            console.log('updatedData', updatedData, updatedQuantity, updatedPrice);
+                { new: true }
+            );
+
+            console.log('updatedData', updatedData);
 
             return res.status(200).json({
                 data: updatedData,
                 message: 'Cart updated successfully',
                 success: true
-            })
+            });
         }
 
-        if (!cartData) {
-            return res.status(400).json({ message: 'Cart data is required', success: false });
-        }
-
-        const newCartData = await AddCartModel.create({ ...cartData, quantity: 1, totalPrice: cartData.price * 1 });
-        if (!newCartData) {
-            return res.status(400).json({ message: 'Cart data is required', success: false });
-        }
+        // If item doesn't exist, create new one
+        const newCartData = await AddCartModel.create({
+            ...cartData,
+            quantity: 1,
+            totalPrice: cartData.price
+        });
 
         return res.status(201).json({
-            data: cartData,
+            data: newCartData,
             message: 'Cart created successfully',
             success: true,
         });
+
     } catch (error) {
         console.error('Error creating cart:', error);
         return res.status(500).json({
@@ -80,48 +90,120 @@ const createAddCart = async (req, res) => {
     }
 };
 
+
 const updateAddCartById = async (req, res) => {
     try {
         const { id } = req.params;
+
         if (!id) {
-            return res.status(400).json({ message: 'Cart Id is required', success: false })
+            return res.status(400).json({ message: 'Cart Id is required', success: false });
         }
-        const { quantity, totalPrice } = req.body;
-        if (!quantity || !totalPrice) {
-            return res.status(400).json({ message: 'Quantity and totalPrice are required', success: false });
+
+        const { quantity, totalPrice, name } = req.body;
+
+        if (quantity === undefined || totalPrice === undefined || !name) {
+            return res.status(400).json({ message: 'Quantity, totalPrice, and name are required', success: false });
         }
-        const updatedData = await AddCartModel.findById(id);
+
+        const parsedQuantity = Number(quantity);
+        const parsedTotalPrice = Number(totalPrice);
+
+        if (isNaN(parsedQuantity) || isNaN(parsedTotalPrice)) {
+            return res.status(400).json({
+                message: 'Invalid quantity or totalPrice',
+                success: false
+            });
+        }
+
+        const updatedData = await AddCartModel.findOne({ name });
+        const updatedProductQuantity = await ProductModel.findById(id)
+
         if (updatedData) {
-            const updatedQuantity = updatedData.quantity + quantity;
-            const updatedPrice = updatedData.totalPrice + totalPrice;
-            const updateDate = await AddCartModel.findByIdAndUpdate(id, {
+            const updatedQuantity = updatedData.quantity + parsedQuantity;
+            const updatedPrice = updatedData.totalPrice + parsedTotalPrice;
+            const updateDate = await AddCartModel.findByIdAndUpdate(updatedData._id, {
                 $set: {
                     quantity: updatedQuantity,
                     totalPrice: updatedPrice,
                 },
-            }, { new: true })
+            }, { new: true });
+            await ProductModel.findByIdAndUpdate(updatedProductQuantity._id, {
+                $set: {
+                    quantity: updatedQuantity,
+                    totalPrice: updatedPrice,
+                },
+            }, { new: true });
+
             return res.status(200).json({
                 data: updateDate,
                 message: 'Cart updated successfully',
                 success: true
             });
         } else {
-            return res.status(404).json({ message: 'Cart not found', success: false });
-        }
+            const productsData = await ProductModel.findById(id);
+            if (!productsData) {
+                return res.status(404).json({
+                    message: 'Product not found!',
+                    success: false
+                });
+            }
 
+            const productDataToAdd = productsData.toObject();
+            delete productDataToAdd._id;
+            delete productDataToAdd.__v;
+
+            const updatedQuantity = parsedQuantity + parsedQuantity;
+            const updatedPrice = parsedTotalPrice * updatedQuantity;
+
+            const newCartData = await AddCartModel.create({
+                ...productDataToAdd,
+                name,
+                quantity: updatedQuantity,
+                totalPrice: updatedPrice
+            });
+
+            const product = await ProductModel.findById(id);
+            if (!product) {
+                console.log("Product not found with that ID.");
+            } else {
+                await ProductModel.findByIdAndUpdate(product._id,
+                    {
+                        $set: {
+                            quantity: updatedQuantity,
+                            totalPrice: updatedPrice
+                        }
+                    },
+                    { new: true, runValidators: true }
+                )
+            }
+            return res.status(200).json({
+                data: newCartData,
+                message: 'Data added to cart successfully.',
+                success: true
+            });
+        }
 
     } catch (error) {
         console.log(error);
-
-        res.status(500).json({ error: `Failed to update cart with ID: ${id}` });
+        res.status(500).json({ error: `Failed to update cart with ID` });
     }
 };
 
 const deleteAddCartById = async (req, res) => {
     try {
         const { id } = req.params;
-        // Logic to delete a cart by ID
-        res.status(200).json({ message: `Cart with ID: ${id} deleted successfully` });
+        if (!id) {
+            return res.status(401).json({
+                message: 'Id is required!',
+                success: false
+            })
+        }
+        const deletedAnItem = await AddCartModel.findByIdAndDelete(id)
+        return res.status(200).json({
+            data: deletedAnItem,
+            message: `Cart with ID: ${id} deleted successfully`,
+            success: true
+        });
     } catch (error) {
         res.status(500).json({ error: `Failed to delete cart with ID: ${id}` });
     }

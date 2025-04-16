@@ -13,7 +13,15 @@ const ProductSchema = new mongoose.Schema({
     rating: { type: Number },
     reviews: { type: Number },
     stock: { type: Number, required: true },
-    featured: { type: Boolean }
+    featured: { type: Boolean },
+    quantity: {
+        type: Number,
+        default: 0
+    },
+    totalPrice: {
+        type: Number,
+        default: 0
+    }
 });
 
 const ProductModel = mongoose.model('Product', ProductSchema);

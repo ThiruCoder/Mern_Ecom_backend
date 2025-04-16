@@ -6,20 +6,25 @@ import { ecom_router } from './EcomProduct/EcomRouter/EcomRouter.js';
 import { router } from './EcomProduct/ProjectRouter/Router.js';
 
 dotenv.config();
-const frontendUrl = process.env.FRONTND_URL || 'http://localhost:10000'
 
 const app = express();
 
-console.log('adsfdsa', process.env.FRONTND_URL);
 
+const allowedOrigins = [
+    'http://localhost:10000', // your local frontend
+    'https://mern-ecommerce-tu85.onrender.com' // deployed frontend
+];
 
 app.use(cors({
-    origin: frontendUrl,
-    credentials: true,
-    methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-})
-)
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true, // if using cookies or authentication
+}));
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

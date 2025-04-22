@@ -42,30 +42,36 @@ const createAddCart = async (req, res) => {
             return res.status(400).json({ message: 'Cart data or ID is required', success: false });
         }
 
-        const actualData = await AddCartModel.findOne({ _id: cartData._id });
+        if (cartData?.name) {
+            const existingCart = await AddCartModel.findOne({ name: cartData.name });
+            if (existingCart) {
+                try {
+                    const updatedQuantity = existingCart.quantity + 1;
+                    const updatedPrice = existingCart.price * updatedQuantity;
+                    const updatedData = await AddCartModel.findByIdAndUpdate(
+                        existingCart._id,
+                        {
+                            $set: {
+                                quantity: updatedQuantity,
+                                totalPrice: updatedPrice
+                            },
+                        },
+                        { new: true }
+                    );
+                    return res.status(200).json({
+                        data: updatedData,
+                        message: 'Cart quantity is increased successfully',
+                        success: true
+                    });
+                } catch (error) {
+                    console.log('Error:', error);
+                    return res.status(500).json({
+                        message: 'Failed to update cart',
+                        success: false
+                    });
 
-        if (actualData) {
-            const updatedQuantity = actualData.quantity + 1;
-            const updatedPrice = actualData.price * updatedQuantity;
-
-            const updatedData = await AddCartModel.findByIdAndUpdate(
-                actualData._id,
-                {
-                    $set: {
-                        quantity: updatedQuantity,
-                        totalPrice: updatedPrice
-                    },
-                },
-                { new: true }
-            );
-
-            console.log('updatedData', updatedData);
-
-            return res.status(200).json({
-                data: updatedData,
-                message: 'Cart updated successfully',
-                success: true
-            });
+                }
+            }
         }
 
         // If item doesn't exist, create new one
@@ -91,6 +97,8 @@ const createAddCart = async (req, res) => {
 };
 
 
+
+
 const updateAddCartById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -98,12 +106,12 @@ const updateAddCartById = async (req, res) => {
         if (!id) {
             return res.status(400).json({ message: 'Cart Id is required', success: false });
         }
-
         const { quantity, totalPrice, name } = req.body;
 
         if (quantity === undefined || totalPrice === undefined || !name) {
             return res.status(400).json({ message: 'Quantity, totalPrice, and name are required', success: false });
         }
+
 
         const parsedQuantity = Number(quantity);
         const parsedTotalPrice = Number(totalPrice);
@@ -115,12 +123,16 @@ const updateAddCartById = async (req, res) => {
             });
         }
 
-        const updatedData = await AddCartModel.findOne({ name });
-        const updatedProductQuantity = await ProductModel.findById(id)
+        const updatedData = await AddCartModel.findOne({ id: name });
+        const updatedProductQuantity = await ProductModel.findOne({ id: name })
+        console.log('quantity', quantity, 'totalPrice', totalPrice, 'name', name);
+
 
         if (updatedData) {
             const updatedQuantity = updatedData.quantity + parsedQuantity;
             const updatedPrice = updatedData.totalPrice + parsedTotalPrice;
+            console.log('updatedQuantity', updatedQuantity, updatedPrice);
+
             const updateDate = await AddCartModel.findByIdAndUpdate(updatedData._id, {
                 $set: {
                     quantity: updatedQuantity,
@@ -135,7 +147,7 @@ const updateAddCartById = async (req, res) => {
             }, { new: true });
 
             return res.status(200).json({
-                data: updateDate,
+
                 message: 'Cart updated successfully',
                 success: true
             });
@@ -157,7 +169,7 @@ const updateAddCartById = async (req, res) => {
 
             const newCartData = await AddCartModel.create({
                 ...productDataToAdd,
-                name,
+                name: name,
                 quantity: updatedQuantity,
                 totalPrice: updatedPrice
             });
